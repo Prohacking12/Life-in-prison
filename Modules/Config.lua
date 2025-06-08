@@ -1,0 +1,43 @@
+return {
+    AimbotEnabled = false,
+    PanelVisible = false,
+    MaxDistance = 120,
+    MaxAngle = 60,
+    Smoothness = 0.5,
+    DiscordLink = "https://discord.gg/evbUW33jdg",
+    EspEnabled = false,
+    FullbrightEnabled = false,
+    XrayEnabled = false,
+    CurrentTab = "combat",
+    TargetModes = {"AUTOMÁTICO", "POLICÍAS", "PRISIONEROS"},
+    CurrentTargetMode = 1,
+    EspSettings = {
+        box = true,
+        name = true,
+        health = true,
+        distance = true,
+        teamColor = true,
+        textSize = 14,
+        textOutline = true
+    },
+    Colors = {
+        background = Color3.fromRGB(30, 30, 35),
+        header = Color3.fromRGB(200, 80, 0),
+        tabActive = Color3.fromRGB(200, 80, 0),
+        tabInactive = Color3.fromRGB(60, 60, 65),
+        button = Color3.fromRGB(50, 50, 55),
+        buttonActive = Color3.fromRGB(0, 180, 0),
+        buttonRed = Color3.fromRGB(180, 50, 50),
+        text = Color3.fromRGB(240, 240, 240),
+        closeButton = Color3.fromRGB(180, 50, 50),
+        discordButton = Color3.fromRGB(88, 101, 242),
+        espTeam = Color3.fromRGB(0, 255, 0),
+        espEnemy = Color3.fromRGB(255, 0, 0),
+        espText = Color3.fromRGB(255, 255, 255),
+        xray = Color3.fromRGB(0, 150, 255)
+    },
+    ButtonHeight = 40,
+    PanelWidth = 300,
+    PanelHeight = 350,
+    TabHeight = 35
+}
