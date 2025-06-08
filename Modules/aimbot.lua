@@ -1,80 +1,46 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
+local Aimbot = {}
 
-local Camera = Workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
+-- Estado inicial
+local enabled = false
+local targetMode = "Closest"
+local smoothing = 0 -- 0 = sin suavizado, >0 con suavizado
 
-local Aimbot = {
-    Enabled = false,
-    Smoothness = 0.5,
-    MaxDistance = 120,
-    MaxAngle = 60,
-    TargetMode = 1,
-    LastTarget = nil,
-}
-
-local function getEnemyTeams()
-    local mode = Aimbot.TargetMode
-    local team = LocalPlayer.Team and LocalPlayer.Team.Name or ""
-    if mode == 2 then return {"Police"} end
-    if mode == 3 then return {"Prisoners", "Criminals"} end
-    if team == "Police" then return {"Prisoners", "Criminals"} end
-    return {"Police"}
+function Aimbot.SetEnabled(state)
+    enabled = state
+    print("[Aimbot] Estado:", enabled and "ON" or "OFF")
 end
 
-function Aimbot.getTarget()
-    local myChar = LocalPlayer.Character
-    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+function Aimbot.IsEnabled()
+    return enabled
+end
 
-    local closest, shortestDistance = nil, Aimbot.MaxDistance
-    local myPos = myChar.HumanoidRootPart.Position
-    local enemies = getEnemyTeams()
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and (player.Team and table.find(enemies, player.Team.Name)) then
-            local char = player.Character
-            if char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                local head = char.Head
-                local distance = (myPos - head.Position).Magnitude
-                if distance < shortestDistance then
-                    local dir = (head.Position - Camera.CFrame.Position).Unit
-                    local angle = math.deg(math.acos(Camera.CFrame.LookVector:Dot(dir)))
-                    if angle < Aimbot.MaxAngle then
-                        local rayParams = RaycastParams.new()
-                        rayParams.FilterDescendantsInstances = {myChar}
-                        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                        local ray = Workspace:Raycast(Camera.CFrame.Position, dir * Aimbot.MaxDistance, rayParams)
-                        if not ray or ray.Instance:IsDescendantOf(char) then
-                            closest = head
-                            shortestDistance = distance
-                        end
-                    end
-                end
-            end
-        end
+function Aimbot.SetTargetMode(mode)
+    if mode == "Closest" or mode == "LockOn" or mode == "Mouse" then
+        targetMode = mode
+        print("[Aimbot] Modo objetivo:", targetMode)
+    else
+        warn("[Aimbot] Modo objetivo inválido:", mode)
     end
-
-    return closest
 end
 
-function Aimbot.init()
-    RunService.RenderStepped:Connect(function()
-        if not Aimbot.Enabled then 
-            Aimbot.LastTarget = nil
-            return
-        end
-        
-        local target = Aimbot.getTarget()
-        if target then
-            local camCF = Camera.CFrame
-            local targetCF = CFrame.new(Camera.CFrame.Position, target.Position)
-            Camera.CFrame = camCF:Lerp(targetCF, 1 - Aimbot.Smoothness)
-            Aimbot.LastTarget = target
-        else
-            Aimbot.LastTarget = nil
-        end
-    end)
+function Aimbot.GetTargetMode()
+    return targetMode
+end
+
+function Aimbot.SetSmoothing(value)
+    smoothing = tonumber(value) or 0
+    print("[Aimbot] Suavidad establecida a:", smoothing)
+end
+
+function Aimbot.GetSmoothing()
+    return smoothing
+end
+
+-- Función para apuntar (simplificada, depende de implementación en el juego)
+function Aimbot.AimAt(target)
+    if not enabled then return end
+    -- Aquí deberías implementar apuntado real
+    -- Ejemplo: cambiar cámara hacia target con suavizado
 end
 
 return Aimbot
