@@ -3,7 +3,7 @@ ScreenGui.Name = "GunpowderScriptUI"
 
 local button = Instance.new("TextButton", ScreenGui)
 button.Size = UDim2.new(0, 100, 0, 40)
-button.Position = UDim2.new(0.5, -50, 0.85, 0) -- sobre el botón de salto
+button.Position = UDim2.new(0.5, -50, 0.85, 0)
 button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 button.TextColor3 = Color3.fromRGB(255, 255, 255)
 button.Text = "Aimbot: OFF"
