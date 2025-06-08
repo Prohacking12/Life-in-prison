@@ -1,105 +1,74 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
 local GuiModule = {}
 
--- Helper para crear botones toggle
-local function CreateToggleButton(text, parent, onToggle, initialState)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0, 120, 0, 40)
-    button.BackgroundColor3 = initialState and Color3.fromRGB(30,200,30) or Color3.fromRGB(200,30,30)
-    button.TextColor3 = Color3.new(1,1,1)
-    button.Font = Enum.Font.SourceSansBold
-    button.TextScaled = true
-    button.Text = text .. (initialState and ": ON" or ": OFF")
-    button.Parent = parent
+local states = {
+    Aimbot = false,
+    ESP = false,
+    Fullbright = false,
+    XRay = false,
+    SmoothAim = false,
+    KillAura = false,
+    FastHeal = false,
+    TargetModeIndex = 1,
+    TeamIndex = 1,
+}
 
-    local state = initialState or false
+local targetModes = {"Closest", "LockOn", "Mouse"}
+local teams = {"Prisoners", "Police", "Criminals"}
 
-    button.MouseButton1Click:Connect(function()
-        local result = onToggle()
-        if type(result) == "boolean" then
-            state = result
-        else
-            state = not state
-        end
-        button.BackgroundColor3 = state and Color3.fromRGB(30,200,30) or Color3.fromRGB(200,30,30)
-        button.Text = text .. (state and ": ON" or ": OFF")
-    end)
-
-    local function Update(newState)
-        state = newState
-        button.BackgroundColor3 = state and Color3.fromRGB(30,200,30) or Color3.fromRGB(200,30,30)
-        button.Text = text .. (state and ": ON" or ": OFF")
-    end
-
-    return button, Update
+local function setButtonState(btn, state)
+    btn.TextColor3 = state and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    btn.Text = btn.Name .. ": " .. (state and "ON" or "OFF")
 end
 
--- Botón selector que cicla opciones
-local function CreateCycleButton(text, options, parent, onCycle, initialIndex)
-    local index = initialIndex or 1
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0, 140, 0, 40)
-    button.BackgroundColor3 = Color3.fromRGB(70,70,70)
-    button.TextColor3 = Color3.new(1,1,1)
-    button.Font = Enum.Font.SourceSansBold
-    button.TextScaled = true
-    button.Text = text .. ": " .. options[index]
-    button.Parent = parent
-
-    button.MouseButton1Click:Connect(function()
-        index = index + 1
-        if index > #options then index = 1 end
-        button.Text = text .. ": " .. options[index]
-        if onCycle then
-            onCycle(options[index])
-        end
-    end)
-
-    local function Update(newIndex)
-        if newIndex and options[newIndex] then
-            index = newIndex
-            button.Text = text .. ": " .. options[index]
-        end
-    end
-
-    return button, Update
+local function setTextButton(btn, text)
+    btn.Text = text
 end
 
-function GuiModule:CreateGUI(callbacks, initialState)
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "CompoundVHub"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = game:GetService("CoreGui")
+function GuiModule.CreateGui(Callbacks)
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "CompoundVHub"
+    gui.ResetOnSpawn = false
+    gui.Parent = player:WaitForChild("PlayerGui")
 
-    local openButton = Instance.new("TextButton")
-    openButton.Name = "OpenButton"
-    openButton.Size = UDim2.new(0, 40, 0, 40)
-    openButton.Position = UDim2.new(0, 0, 0.5, -20)
-    openButton.AnchorPoint = Vector2.new(0,0.5)
-    openButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    openButton.TextColor3 = Color3.new(1,1,1)
-    openButton.Font = Enum.Font.SourceSansBold
-    openButton.Text = "V"
-    openButton.Parent = screenGui
+    -- Botón "V" para abrir/cerrar GUI
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0, 40, 0, 40)
+    toggleBtn.Position = UDim2.new(0, 10, 0.5, -20)
+    toggleBtn.BackgroundTransparency = 1
+    toggleBtn.Text = "V"
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 0, 0)
+    toggleBtn.TextScaled = true
+    toggleBtn.Font = Enum.Font.Arcade
+    toggleBtn.ZIndex = 5
+    toggleBtn.Parent = gui
 
-    local panel = Instance.new("Frame")
-    panel.Name = "MainPanel"
-    panel.Size = UDim2.new(0, 300, 0, 400)
-    panel.Position = UDim2.new(0, 40, 0.5, -200)
-    panel.AnchorPoint = Vector2.new(0,0.5)
-    panel.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    panel.Visible = false
-    panel.Parent = screenGui
+    -- Panel principal
+    local main = Instance.new("Frame")
+    main.Size = UDim2.new(0, 600, 0, 400)
+    main.Position = UDim2.new(0.5, -300, 0.5, -200)
+    main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    main.BorderSizePixel = 0
+    main.Visible = false
+    main.Active = true
+    main.ZIndex = 4
+    main.Parent = gui
 
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
-
-    panel.InputBegan:Connect(function(input)
+    -- Arrastrar panel
+    local dragging, dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+    main.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             dragStart = input.Position
-            startPos = panel.Position
+            startPos = main.Position
             input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
@@ -107,60 +76,207 @@ function GuiModule:CreateGUI(callbacks, initialState)
             end)
         end
     end)
-
-    panel.InputChanged:Connect(function(input)
+    main.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement then
             dragInput = input
         end
     end)
-
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
+    UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            update(input)
         end
     end)
 
-    openButton.MouseButton1Click:Connect(function()
-        panel.Visible = not panel.Visible
-    end)
+    -- Panel izquierdo menú
+    local leftPanel = Instance.new("Frame")
+    leftPanel.Size = UDim2.new(0, 200, 1, 0)
+    leftPanel.Position = UDim2.new(0, 0, 0, 0)
+    leftPanel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    leftPanel.Parent = main
 
-    local combatTab = Instance.new("Frame")
-    combatTab.Name = "CombatTab"
-    combatTab.Size = UDim2.new(1, 0, 1, 0)
-    combatTab.BackgroundTransparency = 1
-    combatTab.Parent = panel
+    local sections = {"Combat", "Visual", "Configuration"}
+    local buttons = {}
+    local activeSection = "Combat"
 
-    local aimbotBtn, updateAimbotBtn = CreateToggleButton("Aimbot", combatTab, callbacks.ToggleAimbot, initialState.aimbot)
-    aimbotBtn.Position = UDim2.new(0, 10, 0, 10)
-
-    local espBtn, updateESPBtn = CreateToggleButton("ESP", combatTab, callbacks.ToggleESP, initialState.esp)
-    espBtn.Position = UDim2.new(0, 10, 0, 60)
-
-    local fullbrightBtn, updateFullbrightBtn = CreateToggleButton("Fullbright", combatTab, callbacks.ToggleFullbright, initialState.fullbright)
-    fullbrightBtn.Position = UDim2.new(0, 10, 0, 110)
-
-    local xrayBtn, updateXRayBtn = CreateToggleButton("XRay", combatTab, callbacks.ToggleXRay, initialState.xray)
-    xrayBtn.Position = UDim2.new(0, 10, 0, 160)
-
-    local targetBtn, updateTargetBtn = CreateCycleButton("Target", {"Closest", "LockOn", "Mouse"}, combatTab, callbacks.CycleTarget, initialState.currentTargetIndex)
-    targetBtn.Position = UDim2.new(0, 10, 0, 210)
-
-    -- Guardar referencias para actualizar botones desde fuera
-    self._updateAimbotBtn = updateAimbotBtn
-    self._updateESPBtn = updateESPBtn
-    self._updateFullbrightBtn = updateFullbrightBtn
-    self._updateXRayBtn = updateXRayBtn
-    self._updateTargetBtn = updateTargetBtn
-
-    -- Función para actualizar el botón Aimbot desde fuera (ej: botón rápido)
-    function GuiModule.UpdateAimbotButton(newState)
-        if GuiModule._updateAimbotBtn then
-            GuiModule._updateAimbotBtn(newState)
-        end
+    for i, sec in ipairs(sections) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 50)
+        btn.Position = UDim2.new(0, 0, 0, 50 * (i - 1))
+        btn.Text = sec
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextScaled = true
+        btn.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.Parent = leftPanel
+        buttons[sec] = btn
     end
 
-    return GuiModule
+    local contentPanel = Instance.new("Frame")
+    contentPanel.Size = UDim2.new(1, -200, 1, 0)
+    contentPanel.Position = UDim2.new(0, 200, 0, 0)
+    contentPanel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    contentPanel.Parent = main
+
+    local containers = {}
+    for _, sec in ipairs(sections) do
+        local cont = Instance.new("ScrollingFrame")
+        cont.Size = UDim2.new(1, 0, 1, 0)
+        cont.BackgroundTransparency = 1
+        cont.ScrollBarThickness = 6
+        cont.Visible = false
+        cont.Parent = contentPanel
+        containers[sec] = cont
+    end
+
+    containers[activeSection].Visible = true
+    buttons[activeSection].BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+
+    for sec, btn in pairs(buttons) do
+        btn.MouseButton1Click:Connect(function()
+            if sec ~= activeSection then
+                containers[activeSection].Visible = false
+                buttons[activeSection].BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+
+                activeSection = sec
+
+                containers[activeSection].Visible = true
+                buttons[activeSection].BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+            end
+        end)
+    end
+
+    local function createToggleButton(parent, name, initialState, onToggle)
+        local btn = Instance.new("TextButton")
+        btn.Name = name
+        btn.Size = UDim2.new(1, -20, 0, 40)
+        btn.Position = UDim2.new(0, 10, 0, 0)
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextScaled = true
+        btn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+        btn.TextColor3 = initialState and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        btn.Text = name .. ": " .. (initialState and "ON" or "OFF")
+        btn.Parent = parent
+
+        btn.MouseButton1Click:Connect(function()
+            local newState = not states[name]
+            states[name] = newState
+            setButtonState(btn, newState)
+            if onToggle then onToggle(newState) end
+        end)
+
+        return btn
+    end
+
+    local function createTextButton(parent, name, text, onClick)
+        local btn = Instance.new("TextButton")
+        btn.Name = name
+        btn.Size = UDim2.new(1, -20, 0, 40)
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextScaled = true
+        btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.Text = text
+        btn.Position = UDim2.new(0, 10, 0, 0)
+        btn.Parent = parent
+
+        if onClick then
+            btn.MouseButton1Click:Connect(onClick)
+        end
+
+        return btn
+    end
+
+    -- Combat tab content
+    do
+        local parent = containers["Combat"]
+        local y = 10
+        local spacing = 50
+
+        local function addBtn(name, stateName)
+            local btn = createToggleButton(parent, name, states[stateName], function(state)
+                if Callbacks and Callbacks["Toggle" .. name] then
+                    Callbacks["Toggle" .. name](state)
+                end
+            end)
+            btn.Position = UDim2.new(0, 10, 0, y)
+            y = y + spacing
+            return btn
+        end
+
+        addBtn("Aimbot", "Aimbot")
+        addBtn("KillAura", "KillAura")
+        addBtn("FastHeal", "FastHeal")
+
+        -- Selector objetivo
+        local targetModeBtn = createTextButton(parent, "TargetMode", "Target Mode: " .. targetModes[states.TargetModeIndex], function()
+            states.TargetModeIndex = states.TargetModeIndex % #targetModes + 1
+            targetModeBtn.Text = "Target Mode: " .. targetModes[states.TargetModeIndex]
+            if Callbacks and Callbacks.OnTargetModeChanged then
+                Callbacks.OnTargetModeChanged(targetModes[states.TargetModeIndex])
+            end
+        end)
+        targetModeBtn.Position = UDim2.new(0, 10, 0, y)
+        y = y + spacing
+
+        -- Selector equipo
+        local teamBtn = createTextButton(parent, "TeamSelector", "Team: " .. teams[states.TeamIndex], function()
+            states.TeamIndex = states.TeamIndex % #teams + 1
+            teamBtn.Text = "Team: " .. teams[states.TeamIndex]
+            if Callbacks and Callbacks.OnTeamChanged then
+                Callbacks.OnTeamChanged(teams[states.TeamIndex])
+            end
+        end)
+        teamBtn.Position = UDim2.new(0, 10, 0, y)
+        y = y + spacing
+    end
+
+    -- Visual tab content
+    do
+        local parent = containers["Visual"]
+        local y = 10
+        local spacing = 50
+
+        local function addBtn(name, stateName)
+            local btn = createToggleButton(parent, name, states[stateName], function(state)
+                if Callbacks and Callbacks["Toggle" .. name] then
+                    Callbacks["Toggle" .. name](state)
+                end
+            end)
+            btn.Position = UDim2.new(0, 10, 0, y)
+            y = y + spacing
+            return btn
+        end
+
+        addBtn("ESP", "ESP")
+        addBtn("Fullbright", "Fullbright")
+        addBtn("XRay", "XRay")
+        addBtn("SmoothAim", "SmoothAim")
+    end
+
+    -- Configuration tab content
+    do
+        local parent = containers["Configuration"]
+        local y = 10
+        local spacing = 50
+
+        -- Aquí puedes agregar botones o sliders de configuración extra si quieres
+        local infoLabel = Instance.new("TextLabel")
+        infoLabel.Size = UDim2.new(1, -20, 0, 100)
+        infoLabel.Position = UDim2.new(0, 10, 0, y)
+        infoLabel.BackgroundTransparency = 1
+        infoLabel.TextColor3 = Color3.new(1,1,1)
+        infoLabel.TextWrapped = true
+        infoLabel.Text = "CompoundVHub - Versión 1.0\nDesarrollado por ChatGPT\n\nModular y listo para integrar."
+        infoLabel.Font = Enum.Font.SourceSansItalic
+        infoLabel.TextScaled = true
+        infoLabel.Parent = parent
+    end
+
+    toggleBtn.MouseButton1Click:Connect(function()
+        main.Visible = not main.Visible
+    end)
+
+    return gui, states
 end
 
 return GuiModule
