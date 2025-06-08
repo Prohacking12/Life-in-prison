@@ -1,195 +1,166 @@
 local GuiModule = {}
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+-- Helper para crear botones toggle
+local function CreateToggleButton(text, parent, onToggle, initialState)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 120, 0, 40)
+    button.BackgroundColor3 = initialState and Color3.fromRGB(30,200,30) or Color3.fromRGB(200,30,30)
+    button.TextColor3 = Color3.new(1,1,1)
+    button.Font = Enum.Font.SourceSansBold
+    button.TextScaled = true
+    button.Text = text .. (initialState and ": ON" or ": OFF")
+    button.Parent = parent
 
-function GuiModule:CreateGUI(callbacks)
-	local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-	gui.Name = "CompoundVHub"
-	gui.ResetOnSpawn = false
-	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    local state = initialState or false
 
-	-- Toggle "V" Button (centro izquierdo)
-	local toggle = Instance.new("TextButton")
-	toggle.Size = UDim2.new(0, 40, 0, 40)
-	toggle.Position = UDim2.new(0, 10, 0.5, -20)
-	toggle.BackgroundTransparency = 1
-	toggle.Text = "V"
-	toggle.TextColor3 = Color3.fromRGB(255, 0, 0)
-	toggle.TextScaled = true
-	toggle.Font = Enum.Font.Arcade
-	toggle.Parent = gui
-	toggle.ZIndex = 3
+    button.MouseButton1Click:Connect(function()
+        local result = onToggle()
+        if type(result) == "boolean" then
+            state = result
+        else
+            state = not state
+        end
+        button.BackgroundColor3 = state and Color3.fromRGB(30,200,30) or Color3.fromRGB(200,30,30)
+        button.Text = text .. (state and ": ON" or ": OFF")
+    end)
 
-	-- Main GUI Frame
-	local main = Instance.new("Frame")
-	main.Size = UDim2.new(0, 600, 0, 400)
-	main.Position = UDim2.new(0.5, -300, 0.5, -200)
-	main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	main.BorderSizePixel = 0
-	main.Visible = false
-	main.Active = true
-	main.Draggable = true
-	main.Parent = gui
+    local function Update(newState)
+        state = newState
+        button.BackgroundColor3 = state and Color3.fromRGB(30,200,30) or Color3.fromRGB(200,30,30)
+        button.Text = text .. (state and ": ON" or ": OFF")
+    end
 
-	toggle.MouseButton1Click:Connect(function()
-		main.Visible = not main.Visible
-	end)
+    return button, Update
+end
 
-	-- Left Panel (menú)
-	local leftPanel = Instance.new("Frame", main)
-	leftPanel.Size = UDim2.new(0, 200, 1, 0)
-	leftPanel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-	leftPanel.Position = UDim2.new(0, 0, 0, 0)
+-- Botón selector que cicla opciones
+local function CreateCycleButton(text, options, parent, onCycle, initialIndex)
+    local index = initialIndex or 1
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 140, 0, 40)
+    button.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    button.TextColor3 = Color3.new(1,1,1)
+    button.Font = Enum.Font.SourceSansBold
+    button.TextScaled = true
+    button.Text = text .. ": " .. options[index]
+    button.Parent = parent
 
-	-- Logo
-	local logo = Instance.new("TextLabel", leftPanel)
-	logo.Size = UDim2.new(1, 0, 0, 100)
-	logo.Position = UDim2.new(0, 0, 0, 0)
-	logo.Text = "COMPOUND V\nHUB"
-	logo.TextColor3 = Color3.fromRGB(255, 0, 0)
-	logo.Font = Enum.Font.SpecialElite
-	logo.TextScaled = true
-	logo.BackgroundTransparency = 1
+    button.MouseButton1Click:Connect(function()
+        index = index + 1
+        if index > #options then index = 1 end
+        button.Text = text .. ": " .. options[index]
+        if onCycle then
+            onCycle(options[index])
+        end
+    end)
 
-	-- Right Panel
-	local rightPanel = Instance.new("Frame", main)
-	rightPanel.Position = UDim2.new(0, 200, 0, 0)
-	rightPanel.Size = UDim2.new(1, -200, 1, 0)
-	rightPanel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    local function Update(newIndex)
+        if newIndex and options[newIndex] then
+            index = newIndex
+            button.Text = text .. ": " .. options[index]
+        end
+    end
 
-	-- Botón Rápido Aimbot
-	local aimQuick = Instance.new("TextButton", gui)
-	aimQuick.Size = UDim2.new(0, 90, 0, 30)
-	aimQuick.Position = UDim2.new(1, -100, 1, -100) -- Justo arriba del botón de salto
-	aimQuick.AnchorPoint = Vector2.new(0, 1)
-	aimQuick.Text = "aim:off"
-	aimQuick.Font = Enum.Font.SourceSansBold
-	aimQuick.TextScaled = true
-	aimQuick.TextColor3 = Color3.fromRGB(255, 255, 255)
-	aimQuick.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-	aimQuick.BorderSizePixel = 0
+    return button, Update
+end
 
-	local aimEnabled = false
-	aimQuick.MouseButton1Click:Connect(function()
-		aimEnabled = not aimEnabled
-		aimQuick.Text = aimEnabled and "aim:on" or "aim:off"
-		aimQuick.BackgroundColor3 = aimEnabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(100, 0, 0)
-		if callbacks and callbacks.ToggleAimbot then
-			callbacks.ToggleAimbot(aimEnabled)
-		end
-	end)
+function GuiModule:CreateGUI(callbacks, initialState)
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "CompoundVHub"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = game:GetService("CoreGui")
 
-	-- Secciones y botones
-	local sections = {
-		Combat = {
-			{"Toggle Aimbot", function()
-				aimEnabled = not aimEnabled
-				aimQuick.Text = aimEnabled and "aim:on" or "aim:off"
-				if callbacks and callbacks.ToggleAimbot then
-					callbacks.ToggleAimbot(aimEnabled)
-				end
-			end},
-			{"Lock-On", function()
-				if callbacks and callbacks.ToggleLock then
-					callbacks.ToggleLock()
-				end
-			end},
-			{"Aimbot Suavidad", function()
-				if callbacks and callbacks.CycleSmoothness then
-					callbacks.CycleSmoothness()
-				end
-			end},
-		},
-		Visual = {
-			{"ESP", function()
-				if callbacks and callbacks.ToggleESP then
-					callbacks.ToggleESP()
-				end
-			end},
-			{"X-Ray", function()
-				if callbacks and callbacks.ToggleXRay then
-					callbacks.ToggleXRay()
-				end
-			end},
-			{"Fullbright", function()
-				if callbacks and callbacks.ToggleFullbright then
-					callbacks.ToggleFullbright()
-				end
-			end},
-		},
-		Config = {
-			{"Prisoners", function()
-				if callbacks and callbacks.SwitchTeam then
-					callbacks.SwitchTeam("Prisoners")
-				end
-			end},
-			{"Police", function()
-				if callbacks and callbacks.SwitchTeam then
-					callbacks.SwitchTeam("Police")
-				end
-			end},
-			{"Criminals", function()
-				if callbacks and callbacks.SwitchTeam then
-					callbacks.SwitchTeam("Criminals")
-				end
-			end},
-		}
-	}
+    local openButton = Instance.new("TextButton")
+    openButton.Name = "OpenButton"
+    openButton.Size = UDim2.new(0, 40, 0, 40)
+    openButton.Position = UDim2.new(0, 0, 0.5, -20)
+    openButton.AnchorPoint = Vector2.new(0,0.5)
+    openButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    openButton.TextColor3 = Color3.new(1,1,1)
+    openButton.Font = Enum.Font.SourceSansBold
+    openButton.Text = "V"
+    openButton.Parent = screenGui
 
-	local sectionButtons = {"Combat", "Visual", "Config"}
-	local sectionFrames = {}
+    local panel = Instance.new("Frame")
+    panel.Name = "MainPanel"
+    panel.Size = UDim2.new(0, 300, 0, 400)
+    panel.Position = UDim2.new(0, 40, 0.5, -200)
+    panel.AnchorPoint = Vector2.new(0,0.5)
+    panel.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    panel.Visible = false
+    panel.Parent = screenGui
 
-	for i, sectionName in ipairs(sectionButtons) do
-		local btn = Instance.new("TextButton", leftPanel)
-		btn.Size = UDim2.new(1, 0, 0, 50)
-		btn.Position = UDim2.new(0, 0, 0, 100 + (i - 1) * 50)
-		btn.Text = sectionName
-		btn.Font = Enum.Font.SourceSansBold
-		btn.TextScaled = true
-		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-		btn.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
 
-		-- Create section content
-		local frame = Instance.new("Frame", rightPanel)
-		frame.Size = UDim2.new(1, 0, 1, 0)
-		frame.Position = UDim2.new(0, 0, 0, 0)
-		frame.Visible = (i == 1) -- only Combat visible by default
-		sectionFrames[sectionName] = frame
+    panel.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = panel.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
 
-		local yOffset = 10
-		for _, entry in ipairs(sections[sectionName]) do
-			local b = Instance.new("TextButton", frame)
-			b.Size = UDim2.new(0, 200, 0, 40)
-			b.Position = UDim2.new(0, 10, 0, yOffset)
-			b.Text = entry[1]
-			b.Font = Enum.Font.SourceSans
-			b.TextScaled = true
-			b.TextColor3 = Color3.fromRGB(255, 255, 255)
-			b.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-			b.MouseButton1Click:Connect(entry[2])
-			yOffset = yOffset + 50
-		end
+    panel.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
 
-		btn.MouseButton1Click:Connect(function()
-			for name, f in pairs(sectionFrames) do
-				f.Visible = (name == sectionName)
-			end
-		end)
-	end
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
 
-	-- Discord Info
-	local discord = Instance.new("TextLabel", main)
-	discord.Text = "discord: Burntrap10"
-	discord.Font = Enum.Font.SourceSansBold
-	discord.TextColor3 = Color3.fromRGB(0, 0, 255)
-	discord.TextScaled = true
-	discord.TextXAlignment = Enum.TextXAlignment.Left
-	discord.Size = UDim2.new(0, 300, 0, 25)
-	discord.Position = UDim2.new(0, 10, 1, -30)
-	discord.BackgroundTransparency = 1
+    openButton.MouseButton1Click:Connect(function()
+        panel.Visible = not panel.Visible
+    end)
 
-	return gui
+    local combatTab = Instance.new("Frame")
+    combatTab.Name = "CombatTab"
+    combatTab.Size = UDim2.new(1, 0, 1, 0)
+    combatTab.BackgroundTransparency = 1
+    combatTab.Parent = panel
+
+    local aimbotBtn, updateAimbotBtn = CreateToggleButton("Aimbot", combatTab, callbacks.ToggleAimbot, initialState.aimbot)
+    aimbotBtn.Position = UDim2.new(0, 10, 0, 10)
+
+    local espBtn, updateESPBtn = CreateToggleButton("ESP", combatTab, callbacks.ToggleESP, initialState.esp)
+    espBtn.Position = UDim2.new(0, 10, 0, 60)
+
+    local fullbrightBtn, updateFullbrightBtn = CreateToggleButton("Fullbright", combatTab, callbacks.ToggleFullbright, initialState.fullbright)
+    fullbrightBtn.Position = UDim2.new(0, 10, 0, 110)
+
+    local xrayBtn, updateXRayBtn = CreateToggleButton("XRay", combatTab, callbacks.ToggleXRay, initialState.xray)
+    xrayBtn.Position = UDim2.new(0, 10, 0, 160)
+
+    local targetBtn, updateTargetBtn = CreateCycleButton("Target", {"Closest", "LockOn", "Mouse"}, combatTab, callbacks.CycleTarget, initialState.currentTargetIndex)
+    targetBtn.Position = UDim2.new(0, 10, 0, 210)
+
+    -- Guardar referencias para actualizar botones desde fuera
+    self._updateAimbotBtn = updateAimbotBtn
+    self._updateESPBtn = updateESPBtn
+    self._updateFullbrightBtn = updateFullbrightBtn
+    self._updateXRayBtn = updateXRayBtn
+    self._updateTargetBtn = updateTargetBtn
+
+    -- Función para actualizar el botón Aimbot desde fuera (ej: botón rápido)
+    function GuiModule.UpdateAimbotButton(newState)
+        if GuiModule._updateAimbotBtn then
+            GuiModule._updateAimbotBtn(newState)
+        end
+    end
+
+    return GuiModule
 end
 
 return GuiModule
